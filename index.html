@@ -830,6 +830,57 @@ async function ingest(file) {
 
 window.addEventListener('resize',()=>{if(geo)drawMap();});
 window.addEventListener('orientationchange',()=>{setTimeout(()=>{if(geo)drawMap();},300);});
+// ── AUTO-LOAD FROM GITHUB DATA FOLDER ─────────────────
+async function autoLoadFromGitHub() {
+  try {
+    const apiUrl = 'https://api.github.com/repos/MTA-FUEL-1/fuel-dashboardNEW3/contents/data';
+    const res = await fetch(apiUrl);
+    if (!res.ok) return;
+    const files = await res.json();
+    const jsonFiles = files.filter(f => f.name.endsWith('_fuel.json'));
+    if (!jsonFiles.length) return;
+
+    // Sort by date ascending
+    jsonFiles.sort((a, b) => {
+      const pa = a.name.replace('_fuel.json','').split('.');
+      const pb = b.name.replace('_fuel.json','').split('.');
+      return new Date(`${pa[2]}-${pa[0]}-${pa[1]}`) - new Date(`${pb[2]}-${pb[0]}-${pb[1]}`);
+    });
+
+    let added = 0;
+    for (const file of jsonFiles) {
+      const r = await fetch(file.download_url + '?t=' + Date.now());
+      const data = await r.json();
+      const parts = data.date.split('.');
+      const shortDate = `${parts[0]}/${parts[1]}`;
+
+      if (!D.trends.find(t => t.date === shortDate)) {
+        D.trends.push({ date: shortDate, retail: data.retail, discounted: data.discount, savings: data.savings });
+        D.dates[shortDate] = {
+          ss: [],
+          stores: {},
+          nat: { retail: data.retail, disc: data.discount, save: data.savings }
+        };
+        added++;
+      }
+    }
+
+    if (added > 0) {
+      D.trends.sort((a,b) => a.date.localeCompare(b.date));
+      // Rebuild date dropdown
+      const sel = document.getElementById('date-select');
+      const dates = Object.keys(D.dates).sort();
+      sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+      document.getElementById('date-count') && (document.getElementById('date-count').textContent = dates.length + ' dates loaded');
+      // Show latest
+      const latest = dates[dates.length - 1];
+      sel.value = latest;
+      if (typeof switchDate === 'function') switchDate(latest);
+    }
+  } catch(e) { console.warn('GitHub auto-load:', e); }
+}
+
+window.addEventListener('load', () => setTimeout(autoLoadFromGitHub, 800));
 </script>
 </body>
 </html>
