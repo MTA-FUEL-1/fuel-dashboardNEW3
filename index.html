@@ -423,11 +423,11 @@ body{
     <!-- Rankings / Detail -->
     <div id="rank-view">
       <div class="rank-half">
-        <div class="rank-label">▼ Cheapest States</div>
+        <div class="rank-label" id="lbl-cheap">▼ Cheapest States</div>
         <div class="rank-scroll" id="r-cheap"></div>
       </div>
       <div class="rank-half">
-        <div class="rank-label">▲ Most Expensive</div>
+        <div class="rank-label" id="lbl-pricey">▲ Most Expensive</div>
         <div class="rank-scroll" id="r-pricey"></div>
       </div>
     </div>
@@ -565,8 +565,10 @@ function buildRanks() {
       <span class="rct">${s.n} stores</span>
       <span class="rpr" style="color:${col}">${fmtP(s.avg_disc)}</span>
     </div>`;
-  $('r-cheap').innerHTML  = sorted.slice(0,7).map((s,i)=>row(s,i,'var(--c-green)')).join('');
+  $('r-cheap').innerHTML  = sorted.slice(0,5).map((s,i)=>row(s,i,'var(--c-green)')).join('');
   $('r-pricey').innerHTML = sorted.slice(-5).reverse().map((s,i)=>row(s,i,'var(--c-red)')).join('');
+  $('lbl-cheap').textContent  = '▼ Cheapest States — ' + curDate;
+  $('lbl-pricey').textContent = '▲ Most Expensive — ' + curDate;
 }
 
 // ── DETAIL ───────────────────────────────────
