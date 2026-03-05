@@ -33,4 +33,4 @@ jobs:
           git config user.email "actions@github.com"
           git add -A
           git diff --staged --quiet || git commit -m "Auto-parsed fuel data from Excel"
-          git push
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/MTA-FUEL-1/fuel-dashboardNEW3.git
