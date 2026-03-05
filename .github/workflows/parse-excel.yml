@@ -1,0 +1,36 @@
+name: Parse Excel to JSON
+
+on:
+  push:
+    paths:
+      - 'data/xlsx/**.xlsx'
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install openpyxl
+      - run: python .github/scripts/parse_fuel.py
+      - run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add data/*.json
+          git diff --staged --quiet || git commit -m "Auto-parsed fuel data from Excel"
+          git push
+```
+
+5. Commit message: `Add Excel parser workflow`
+6. Commit directly to main ✅
+
+---
+
+## Step 2 — Create the Python Script
+
+1. Click **"Add file"** → **"Create new file"**
+2. In the filename box type exactly:
+```
+.github/scripts/parse_fuel.py
