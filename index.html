@@ -851,8 +851,8 @@ async function autoLoadFromGitHub() {
     for (const file of jsonFiles) {
     const r = await fetch(file.download_url);
     const text = await r.text();
-    const decoded = atob(text.trim());
-    const data = JSON.parse(decoded);  
+    const data = JSON.parse(text.trim());
+     
       const parts = data.date.split('.');
       const shortDate = `${parts[0]}/${parts[1]}`;
 
