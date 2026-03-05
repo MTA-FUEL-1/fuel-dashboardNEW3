@@ -37,13 +37,19 @@ def fetch_excel_from_email():
         filename = part.get_filename()
         if filename and filename.endswith('.xlsx'):
             excel_data = part.get_payload(decode=True)
-            
-            # Convert Excel to a clean CSV or JSON for the dashboard
-            df = pd.read_excel(BytesIO(excel_data))
-            
-            # Save it to the repo directory (adjust path based on where your HTML looks for data)
-            df.to_json('fuel_data.json', orient='records')
-            print(f"Successfully downloaded and converted {filename} to fuel_data.json")
+
+            # Convert Excel to a clean JSON, skipping the first 7 rows of metadata
+            df = pd.read_excel(BytesIO(excel_data), skiprows=7)
+
+            # Create the /data/ folder if it doesn't exist
+            os.makedirs('data', exist_ok=True)
+
+            # Save it to the data directory using the original filename (swapping .xlsx for .json)
+            json_filename = filename.replace('.xlsx', '.json')
+            file_path = os.path.join('data', json_filename)
+
+            df.to_json(file_path, orient='records')
+            print(f"Successfully downloaded and converted {filename} to {file_path}")
             break
 
     mail.logout()
