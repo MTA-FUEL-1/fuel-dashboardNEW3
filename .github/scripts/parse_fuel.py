@@ -2,17 +2,37 @@ import os, json, glob
 from openpyxl import load_workbook
 from collections import defaultdict
 
-xlsx_files = sorted(glob.glob('data/xlsx/*.xlsx'))
+# Look everywhere for xlsx files
+xlsx_files = sorted(
+    glob.glob('data/xlsx/*.xlsx') +
+    glob.glob('data/*.xlsx') +
+    glob.glob('*.xlsx')
+)
+
+print(f"Found {len(xlsx_files)} xlsx files: {xlsx_files}")
 
 for xlsx_path in xlsx_files:
-    date_str = os.path.basename(xlsx_path).replace('_fuel.xlsx','')
+    basename = os.path.basename(xlsx_path)
+    # Extract date from filename - look for MM.DD.YYYY pattern
+    import re
+    date_match = re.search(r'(\d{2}\.\d{2}\.\d{4})', basename)
+    if not date_match:
+        print(f"Could not extract date from {basename}")
+        continue
+    
+    date_str = date_match.group(1)
     json_path = f'data/{date_str}_fuel.json'
 
     if os.path.exists(json_path):
-        existing = json.load(open(json_path))
-        if 'ss' in existing and len(existing['ss']) > 0:
-            print(f"Skipping {json_path} - already has full data")
-            continue
+        try:
+            existing = json.load(open(json_path))
+            if 'ss' in existing and len(existing['ss']) > 0:
+                print(f"Skipping {json_path} - already has full data")
+                continue
+        except:
+            pass
+
+    print(f"Processing {xlsx_path} -> {json_path}")
 
     wb = load_workbook(xlsx_path, data_only=True)
     ws = wb.active
@@ -42,10 +62,9 @@ for xlsx_path in xlsx_files:
     col_store  = find_col(['store'])
     col_retail = find_col(['retail'])
     col_disc   = find_col(['discount','disc'])
-    col_save   = find_col(['save','savings'])
 
     if None in [col_state, col_retail, col_disc]:
-        print(f"Missing columns in {xlsx_path}")
+        print(f"Missing columns in {xlsx_path}: state={col_state} retail={col_retail} disc={col_disc}")
         continue
 
     state_data = defaultdict(list)
@@ -101,6 +120,9 @@ for xlsx_path in xlsx_files:
 
     parts = date_str.split('.')
     short_date = f"{parts[0]}/{parts[1]}"
+
+    # Make sure data folder exists
+    os.makedirs('data', exist_ok=True)
 
     output = {
         'date':      date_str,
