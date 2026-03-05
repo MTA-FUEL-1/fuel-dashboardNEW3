@@ -6,7 +6,6 @@
 <title>MTA Fuel Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
@@ -97,35 +96,6 @@ body{
 .btn-up:hover{background:rgba(96,165,250,.14)}
 #file-input{display:none}
 
-/* ── DATE BAR ───────────────────────────────────────── */
-#datebar{
-  flex:0 0 44px;
-  display:flex;align-items:center;
-  background:var(--c-surface);
-  border-bottom:1px solid var(--c-border);
-  padding:0 14px;gap:10px;
-}
-.date-label{
-  font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--c-muted);
-  white-space:nowrap;flex-shrink:0;
-}
-#date-select{
-  background:var(--c-bg);border:1px solid var(--c-border);
-  color:var(--c-amber);font-family:'JetBrains Mono',monospace;
-  font-size:13px;font-weight:600;padding:6px 12px;border-radius:4px;
-  cursor:pointer;outline:none;transition:border-color .15s;
-  -webkit-appearance:none;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a7090' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 10px center;
-  padding-right:30px;
-}
-#date-select:focus{border-color:var(--c-amber)}
-#date-select option{background:#0b1018;color:var(--c-text)}
-.date-count{
-  font-size:10px;color:var(--c-muted);white-space:nowrap;
-}
-
-/* ── MAIN LAYOUT ────────────────────────────────────── */
 #main{
   flex:1;min-height:0;
   display:grid;
@@ -192,11 +162,6 @@ body{
 .card-head::before{content:'';width:2px;height:9px;background:var(--c-amber);border-radius:1px;flex-shrink:0}
 
 /* ── TREND ──────────────────────────────────────────── */
-#trend-card{
-  flex:0 0 auto;padding:13px 14px 12px;
-  border-bottom:1px solid var(--c-border);
-}
-#chart-wrap{height:118px;position:relative}
 
 /* ── CALC ───────────────────────────────────────────── */
 #calc-card{
@@ -318,14 +283,6 @@ body{
   .kpi-n { font-size:15px; }
   .hdr-actions { padding-left:0;border-left:none;width:100%;justify-content:space-between; }
 
-  /* Date bar */
-  #datebar { flex:0 0 44px; }
-  #date-select { font-size:14px; }
-
-  /* Main layout — stack vertically */
-  #main {
-    grid-template-columns:1fr;
-    grid-template-rows:auto auto;
     flex:none;
     min-height:0;
   }
@@ -349,9 +306,8 @@ body{
     display:flex;flex-direction:column;
   }
 
-  /* Trend chart */
-  #trend-card { flex:0 0 auto; }
-  #chart-wrap { height:140px; }
+  
+    #chart-wrap { height:140px; }
 
   /* Calculator */
   #calc-card { flex:0 0 auto; }
@@ -420,19 +376,6 @@ body{
   </div>
 </div>
 
-<!-- DATE BAR -->
-<div id="datebar">
-  <span class="date-label">Date</span>
-  <select id="date-select" onchange="switchDate(this.value)"></select>
-  <span class="date-count" id="date-count"></span>
-</div>
-
-<!-- MAIN -->
-<div id="main">
-  <div id="map-col">
-    <div class="map-modes">
-      <button class="mmode on"  onclick="setMode('disc')">Discounted</button>
-      <button class="mmode"     onclick="setMode('retail')">Retail</button>
       <button class="mmode"     onclick="setMode('save')">Savings</button>
     </div>
     <svg id="map-svg"></svg>
@@ -445,12 +388,6 @@ body{
   </div>
 
   <div id="side">
-    <!-- Trend -->
-    <div id="trend-card">
-      <div class="card-head">National Price Trend</div>
-      <div id="chart-wrap"><canvas id="chart"></canvas></div>
-    </div>
-
     <!-- Savings calculator -->
     <div id="calc-card">
       <div class="card-head">Savings Calculator</div>
@@ -518,7 +455,7 @@ const D = {"trends": [{"date": "03/01", "retail": 4.053, "discounted": 3.461, "s
 let curDate  = D.avail[D.avail.length-1];
 let mode     = 'disc';
 let selSt    = null;
-let chart    = null;
+
 let geo      = null;
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -544,8 +481,6 @@ const mval = s  => mode==='retail' ? s.avg_retail : mode==='save' ? s.avg_save :
 // ── INIT ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadSavedDates();
-  buildTabs();
-  buildChart();
   loadMap();
   render();
   $('file-input').addEventListener('change', e => {
@@ -590,16 +525,8 @@ function clearSavedDates() {
 }
 
 // ── TABS ─────────────────────────────────────
-function buildTabs() {
-  const sel=$('date-select');
-  sel.innerHTML=D.avail.map(d=>`<option value="${d}"${d===curDate?' selected':''}>` + fmtDate(d) + `</option>`).join('');
-  $('date-count').textContent=`${D.avail.length} day${D.avail.length!==1?'s':''}`;
-}
 function switchDate(d) {
   curDate=d;
-  const sel=$('date-select');
-  if(sel) sel.value=d;
-  render();
 }
 
 // ── RENDER ───────────────────────────────────
@@ -734,37 +661,6 @@ function setMode(m) {
 }
 
 // ── CHART ────────────────────────────────────
-function buildChart() {
-  chart=new Chart($('chart').getContext('2d'),{
-    type:'line',
-    data:{
-      labels:D.trends.map(t=>fmtDateShort(t.date)),
-      datasets:[
-        {label:'Retail',    data:D.trends.map(t=>t.retail),     borderColor:'#f87171',backgroundColor:'rgba(248,113,113,.05)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f87171',tension:.3,fill:false},
-        {label:'Discounted',data:D.trends.map(t=>t.discounted), borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.07)',   borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',tension:.3,fill:true},
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{labels:{color:'#5a7090',font:{size:10,family:'Inter'},boxWidth:10,padding:10}},
-        tooltip:{backgroundColor:'rgba(5,8,14,.96)',borderColor:'#f59e0b',borderWidth:1,titleColor:'#f59e0b',bodyColor:'#c8d4e8',
-          callbacks:{label:c=>` $${c.parsed.y.toFixed(3)}`}}
-      },
-      scales:{
-        x:{grid:{color:'rgba(26,37,64,.6)'},ticks:{color:'#5a7090',font:{size:9}}},
-        y:{grid:{color:'rgba(26,37,64,.6)'},ticks:{color:'#5a7090',font:{size:9},callback:v=>`$${v.toFixed(2)}`},min:3.2}
-      }
-    }
-  });
-}
-function updateChart() {
-  chart.data.labels=D.trends.map(t=>fmtDateShort(t.date));
-  chart.data.datasets[0].data=D.trends.map(t=>t.retail);
-  chart.data.datasets[1].data=D.trends.map(t=>t.discounted);
-  chart.update();
-}
 
 // ── INGEST ───────────────────────────────────
 async function ingest(file) {
@@ -816,11 +712,10 @@ async function ingest(file) {
     D.avail.push(date);D.avail.sort();
     D.trends.push({date,retail:nr,discounted:nd,savings:ns});
     D.trends.sort((a,b)=>a.date.localeCompare(b.date));
-    updateChart();
   }
   // Persist to localStorage so it survives page refresh
   saveUploadedDate(date, D.dates[date]);
-  buildTabs();switchDate(date);
+  
   const b=document.querySelector('.btn-up'),o=b.innerHTML;
   b.innerHTML=`✓ ${date} Saved`;b.style.borderColor='var(--c-green)';b.style.color='var(--c-green)';
   setTimeout(()=>{b.innerHTML=o;b.style.borderColor='';b.style.color='';},2500);
@@ -869,14 +764,6 @@ async function autoLoadFromGitHub() {
 
     if (added > 0) {
       D.trends.sort((a,b) => a.date.localeCompare(b.date));
-      // Rebuild date dropdown
-      const sel = document.getElementById('date-select');
-      const dates = Object.keys(D.dates).sort();
-      sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
-      document.getElementById('date-count') && (document.getElementById('date-count').textContent = dates.length + ' dates loaded');
-      // Show latest
-      const latest = dates[dates.length - 1];
-      sel.value = latest;
       if (typeof switchDate === 'function') switchDate(latest);
     }
   } catch(e) { console.warn('GitHub auto-load:', e); }
