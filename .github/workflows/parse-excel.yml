@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'data/xlsx/**.xlsx'
+  workflow_dispatch:
 
 jobs:
   parse:
