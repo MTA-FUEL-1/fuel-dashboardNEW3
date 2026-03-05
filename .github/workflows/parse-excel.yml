@@ -1,9 +1,7 @@
 name: Parse Excel to JSON
 
 on:
-  push:
-    paths:
-      - 'data/xlsx/**.xlsx'
+push:
   workflow_dispatch:
 
 permissions:
