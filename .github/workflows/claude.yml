@@ -1,0 +1,13 @@
+name: Claude
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+  pull_request_review_comment:
+    types: [created]
+jobs:
+  claude:
+    uses: anthropics/claude-code-action/.github/workflows/claude.yml@main
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
