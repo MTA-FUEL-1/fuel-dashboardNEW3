@@ -283,6 +283,8 @@ body{
   .kpi-n { font-size:15px; }
   .hdr-actions { padding-left:0;border-left:none;width:100%;justify-content:space-between; }
 
+  #main {
+    display:flex;flex-direction:column;
     flex:none;
     min-height:0;
   }
@@ -376,6 +378,12 @@ body{
   </div>
 </div>
 
+<div id="main">
+  <div id="map-col">
+    <div class="map-label">Fuel Price Map</div>
+    <div class="map-modes">
+      <button class="mmode on" onclick="setMode('disc')">Discounted</button>
+      <button class="mmode"    onclick="setMode('retail')">Retail</button>
       <button class="mmode"     onclick="setMode('save')">Savings</button>
     </div>
     <svg id="map-svg"></svg>
@@ -526,7 +534,9 @@ function clearSavedDates() {
 
 // ── TABS ─────────────────────────────────────
 function switchDate(d) {
+  if (!D.dates[d]) return;
   curDate=d;
+  render();
 }
 
 // ── RENDER ───────────────────────────────────
@@ -732,39 +742,80 @@ async function autoLoadFromGitHub() {
     const res = await fetch(apiUrl);
     if (!res.ok) return;
     const files = await res.json();
-    const jsonFiles = files.filter(f => f.name.endsWith('_fuel.json'));
-    if (!jsonFiles.length) return;
-
-    // Sort by date ascending
-    jsonFiles.sort((a, b) => {
-      const pa = a.name.replace('_fuel.json','').split('.');
-      const pb = b.name.replace('_fuel.json','').split('.');
-      return new Date(`${pa[2]}-${pa[0]}-${pa[1]}`) - new Date(`${pb[2]}-${pb[0]}-${pb[1]}`);
-    });
+    // Match files like "MM.DD.YYYY_fuel.json" (store-level data)
+    const dataFiles = files.filter(f => /^\d{2}\.\d{2}\.\d{4}_fuel\.json$/.test(f.name));
+    if (!dataFiles.length) return;
 
     let added = 0;
-    for (const file of jsonFiles) {
-    const r = await fetch(file.download_url);
-    const text = await r.text();
-    const data = JSON.parse(text.trim());
-     
-      const parts = data.date.split('.');
-      const shortDate = `${parts[0]}/${parts[1]}`;
+    let lastDate = null;
+    for (const file of dataFiles) {
+      const dm = file.name.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+      if (!dm) continue;
+      const shortDate = `${dm[1]}/${dm[2]}`;
+      if (D.dates[shortDate] && D.dates[shortDate].ss.length > 0) continue; // already have full data
 
-      if (!D.trends.find(t => t.date === shortDate)) {
-        D.trends.push({ date: shortDate, retail: data.retail, discounted: data.discount, savings: data.savings });
-        D.dates[shortDate] = {
-          ss: [],
-          stores: {},
-          nat: { retail: data.retail, disc: data.discount, save: data.savings }
+      const r = await fetch(file.download_url);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) continue;
+
+      // Process store-level data (array of {Loves Store No., City, State, ...})
+      const byState = {};
+      rows.forEach(row => {
+        const st = (row['State'] || '').trim();
+        if (!st) return;
+        const retail = +row['Retail Price'] || 0;
+        const disc = +row['Best Discounted Price'] || 0;
+        const save = +row['Discount'] || +(retail - disc).toFixed(4);
+        (byState[st] ||= []).push({
+          store_no: String(row['Loves Store No.'] || ''),
+          city: row['City'] || '',
+          state: st,
+          code: row['Billing Card Station Code'] || '',
+          retail, disc, save
+        });
+      });
+
+      const avg = a => a.reduce((s,v) => s+v, 0) / a.length;
+      const state_ss = Object.entries(byState).map(([st, arr]) => {
+        const d = arr.map(r => r.disc).filter(v => !isNaN(v));
+        const r2 = arr.map(r => r.retail).filter(v => !isNaN(v));
+        const s2 = arr.map(r => r.save).filter(v => !isNaN(v));
+        return {
+          state: st,
+          avg_retail: +avg(r2).toFixed(4),
+          avg_disc: +avg(d).toFixed(4),
+          avg_save: +avg(s2).toFixed(4),
+          best: Math.min(...d),
+          worst: Math.max(...d),
+          n: arr.length
         };
-        added++;
+      });
+
+      let tot_retail = 0, tot_disc = 0, tot_save = 0, cnt = 0;
+      rows.forEach(row => {
+        tot_retail += +row['Retail Price'] || 0;
+        tot_disc += +row['Best Discounted Price'] || 0;
+        tot_save += +row['Discount'] || 0;
+        cnt++;
+      });
+
+      const nr = +(tot_retail / cnt).toFixed(3);
+      const nd = +(tot_disc / cnt).toFixed(3);
+      const ns = +(tot_save / cnt).toFixed(3);
+
+      D.dates[shortDate] = { ss: state_ss, stores: byState, nat: { retail: nr, disc: nd, save: ns } };
+      if (!D.avail.includes(shortDate)) {
+        D.avail.push(shortDate);
+        D.avail.sort();
+        D.trends.push({ date: shortDate, retail: nr, discounted: nd, savings: ns });
+        D.trends.sort((a, b) => a.date.localeCompare(b.date));
       }
+      lastDate = shortDate;
+      added++;
     }
 
-    if (added > 0) {
-      D.trends.sort((a,b) => a.date.localeCompare(b.date));
-      if (typeof switchDate === 'function') switchDate(latest);
+    if (added > 0 && lastDate) {
+      switchDate(lastDate);
     }
   } catch(e) { console.warn('GitHub auto-load:', e); }
 }
