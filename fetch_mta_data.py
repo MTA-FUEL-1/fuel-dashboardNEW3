@@ -1,12 +1,21 @@
 import imaplib
 import email
 import os
+import re
+from datetime import datetime
 import pandas as pd
 from io import BytesIO
 
 # Credentials from GitHub Secrets
 EMAIL = os.environ['GMAIL_USER']
 PASSWORD = os.environ['GMAIL_APP_PASSWORD']
+
+def extract_date_from_subject(subject):
+    """Try to extract MM.DD.YYYY date from the email subject."""
+    m = re.search(r'(\d{2})\.(\d{2})\.(\d{4})', subject or '')
+    if m:
+        return f"{m.group(1)}.{m.group(2)}.{m.group(3)}"
+    return None
 
 def fetch_excel_from_email():
     # Connect to Gmail via IMAP
@@ -27,6 +36,19 @@ def fetch_excel_from_email():
     status, msg_data = mail.fetch(latest_email_id, '(RFC822)')
     msg = email.message_from_bytes(msg_data[0][1])
 
+    # Try to get date from subject, fall back to today's date
+    subject = msg.get('Subject', '')
+    date_str = extract_date_from_subject(subject)
+    if not date_str:
+        # Try extracting from attachment filename
+        for part in msg.walk():
+            fn = part.get_filename() or ''
+            date_str = extract_date_from_subject(fn)
+            if date_str:
+                break
+    if not date_str:
+        date_str = datetime.now().strftime('%m.%d.%Y')
+
     # Extract the attachment
     for part in msg.walk():
         if part.get_content_maintype() == 'multipart':
@@ -44,12 +66,12 @@ def fetch_excel_from_email():
             # Create the /data/ folder if it doesn't exist
             os.makedirs('data', exist_ok=True)
 
-            # Save it to the data directory using the original filename (swapping .xlsx for .json)
-            json_filename = filename.replace('.xlsx', '.json')
+            # Use standardized filename: MM.DD.YYYY_fuel.json
+            json_filename = f"{date_str}_fuel.json"
             file_path = os.path.join('data', json_filename)
 
             df.to_json(file_path, orient='records')
-            print(f"Successfully downloaded and converted {filename} to {file_path}")
+            print(f"Successfully converted {filename} to {file_path}")
             break
 
     mail.logout()
